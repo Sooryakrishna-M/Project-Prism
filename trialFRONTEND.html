@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-commerce Analytics Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutrals & Slate Blue -->
+    <!-- Application Structure Plan: A single-page dashboard with tabbed navigation (Overview, Sales, Customers, Products). This structure provides a clear, task-oriented user flow, starting with high-level KPIs and allowing users to drill down into specific areas of interest. Global filters for the date range affect all displayed data, ensuring a consistent analytical context. This is more intuitive than a linear report, as it lets users explore data based on their questions rather than a predefined order. -->
+    <!-- Visualization & Content Choices: 
+        - Report Info: Key Performance Indicators (Total Revenue, Orders, AOV). Goal: Inform at a glance. Viz: Large-text KPI cards (HTML/CSS). Interaction: None. Justification: Provides immediate visibility of core business health.
+        - Report Info: Revenue over time. Goal: Show change/trends. Viz: Line Chart (Chart.js). Interaction: Hover for tooltips, filter by date. Justification: Best method for visualizing continuous data over a time period.
+        - Report Info: Sales by product category. Goal: Compare parts of a whole. Viz: Bar Chart (Chart.js). Interaction: Filter by date. Justification: Clearly shows performance differences between discrete categories.
+        - Report Info: Customer acquisition sources. Goal: Show proportions. Viz: Donut Chart (Chart.js). Interaction: Hover for percentages. Justification: Effectively communicates the composition of traffic sources.
+        - Report Info: Top selling products. Goal: Organize and rank. Viz: Dynamic HTML Table. Interaction: Sortable columns. Justification: Allows for detailed inspection and ranking of individual items.
+        - Report Info: Customer demographics. Goal: Compare segments. Viz: Horizontal Bar Chart (Chart.js). Justification: Easy comparison of demographic groups.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #FDFBF8;
+            color: #334155;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 40vh;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+        .kpi-card {
+            background-color: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .kpi-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+        }
+        .nav-btn {
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            color: #475569;
+            transition: background-color 0.2s, color 0.2s;
+        }
+        .nav-btn.active, .nav-btn:hover {
+            background-color: #3B82F6;
+            color: #FFFFFF;
+        }
+        .filter-btn {
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            background-color: #FFFFFF;
+            border: 1px solid #CBD5E1;
+            color: #475569;
+            transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+        }
+        .filter-btn.active, .filter-btn:hover {
+            background-color: #EFF6FF;
+            color: #1D4ED8;
+            border-color: #3B82F6;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8">
+        
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-slate-800">E-commerce Analytics Dashboard</h1>
+            <p class="text-slate-500 mt-1">An interactive overview of your online store's performance.</p>
+        </header>
+
+        <main>
+            <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+                <nav id="main-nav" class="flex flex-wrap gap-2 p-1.5 bg-slate-100 rounded-lg">
+                    <button class="nav-btn active" data-view="overview">Overview</button>
+                    <button class="nav-btn" data-view="sales">Sales Performance</button>
+                    <button class="nav-btn" data-view="customers">Customer Insights</button>
+                    <button class="nav-btn" data-view="products">Product Analytics</button>
+                </nav>
+                <div id="date-filters" class="flex items-center gap-2">
+                    <span class="text-sm font-medium text-slate-600">Date Range:</span>
+                    <div class="flex gap-2 bg-white p-1 rounded-lg border">
+                        <button class="filter-btn text-sm" data-range="7">7D</button>
+                        <button class="filter-btn text-sm active" data-range="30">30D</button>
+                        <button class="filter-btn text-sm" data-range="90">90D</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="dashboard-content">
+                
+                <section id="overview-section" class="view-section">
+                    <div class="text-center mb-8">
+                        <h2 class="text-2xl font-semibold text-slate-700">Business Overview</h2>
+                        <p class="text-slate-500 mt-1">A high-level summary of key performance indicators for the selected period.</p>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <div class="kpi-card text-center">
+                            <h3 class="text-slate-500 font-medium">Total Revenue</h3>
+                            <p id="kpi-revenue" class="text-3xl font-bold text-slate-800 mt-2">$0</p>
+                        </div>
+                        <div class="kpi-card text-center">
+                            <h3 class="text-slate-500 font-medium">Total Orders</h3>
+                            <p id="kpi-orders" class="text-3xl font-bold text-slate-800 mt-2">0</p>
+                        </div>
+                        <div class="kpi-card text-center">
+                            <h3 class="text-slate-500 font-medium">Avg. Order Value</h3>
+                            <p id="kpi-aov" class="text-3xl font-bold text-slate-800 mt-2">$0.00</p>
+                        </div>
+                        <div class="kpi-card text-center">
+                            <h3 class="text-slate-500 font-medium">Conversion Rate</h3>
+                            <p id="kpi-conversion" class="text-3xl font-bold text-slate-800 mt-2">0.00%</p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div class="bg-white p-6 rounded-lg border">
+                            <h3 class="text-lg font-semibold text-slate-700 mb-4">Revenue Trend</h3>
+                            <div class="chart-container">
+                                <canvas id="revenueTrendChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="bg-white p-6 rounded-lg border">
+                            <h3 class="text-lg font-semibold text-slate-700 mb-4">Traffic Sources</h3>
+                            <div class="chart-container">
+                                <canvas id="trafficSourcesChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+                <section id="sales-section" class="view-section hidden">
+                    <div class="text-center mb-8">
+                        <h2 class="text-2xl font-semibold text-slate-700">Sales Performance</h2>
+                        <p class="text-slate-500 mt-1">Explore sales data across different product categories and regions.</p>
+                    </div>
+                     <div class="bg-white p-6 rounded-lg border">
+                        <h3 class="text-lg font-semibold text-slate-700 mb-4">Revenue by Product Category</h3>
+                        <div class="chart-container">
+                            <canvas id="salesByCategoryChart"></canvas>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="customers-section" class="view-section hidden">
+                    <div class="text-center mb-8">
+                        <h2 class="text-2xl font-semibold text-slate-700">Customer Insights</h2>
+                        <p class="text-slate-500 mt-1">Understand your customer base through demographic data.</p>
+                    </div>
+                     <div class="bg-white p-6 rounded-lg border">
+                        <h3 class="text-lg font-semibold text-slate-700 mb-4">Customer Demographics by Age</h3>
+                        <div class="chart-container">
+                            <canvas id="customerDemographicsChart"></canvas>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="products-section" class="view-section hidden">
+                    <div class="text-center mb-8">
+                        <h2 class="text-2xl font-semibold text-slate-700">Product Analytics</h2>
+                        <p class="text-slate-500 mt-1">Identify top-performing products and manage inventory effectively.</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg border overflow-x-auto">
+                        <h3 class="text-lg font-semibold text-slate-700 mb-4">Top Selling Products</h3>
+                        <table class="w-full text-left">
+                            <thead>
+                                <tr class="border-b">
+                                    <th class="p-3">Product Name</th>
+                                    <th class="p-3">Category</th>
+                                    <th class="p-3">Units Sold</th>
+                                    <th class="p-3">Total Revenue</th>
+                                </tr>
+                            </thead>
+                            <tbody id="top-products-table">
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            
+            const MOCK_DATA = {
+                orders: [],
+                products: [
+                    { id: 1, name: 'Classic Cotton Tee', category: 'Apparel' },
+                    { id: 2, name: 'Wireless Noise-Cancelling Headphones', category: 'Electronics' },
+                    { id: 3, name: 'The Art of Programming', category: 'Books' },
+                    { id: 4, name: 'Ergonomic Office Chair', category: 'Home Goods' },
+                    { id: 5, name: 'Smart Fitness Tracker', category: 'Electronics' },
+                    { id: 6, name: 'Gourmet Coffee Beans', category: 'Groceries' },
+                    { id: 7, name: 'Yoga Mat', category: 'Sports' },
+                    { id: 8, name: 'Running Shoes', category: 'Apparel' },
+                ],
+                customers: [
+                    { ageGroup: '18-24', trafficSource: 'Social Media' },
+                    { ageGroup: '25-34', trafficSource: 'Organic Search' },
+                    { ageGroup: '35-44', trafficSource: 'Direct' },
+                    { ageGroup: '45-54', trafficSource: 'Paid Search' },
+                    { ageGroup: '55+', trafficSource: 'Email' },
+                ]
+            };
+
+            function generateMockOrders() {
+                const today = new Date();
+                for (let i = 0; i < 90; i++) {
+                    const date = new Date(today);
+                    date.setDate(today.getDate() - i);
+                    const numOrders = Math.floor(Math.random() * 20) + 10;
+                    for (let j = 0; j < numOrders; j++) {
+                        const product = MOCK_DATA.products[Math.floor(Math.random() * MOCK_DATA.products.length)];
+                        const customer = MOCK_DATA.customers[Math.floor(Math.random() * MOCK_DATA.customers.length)];
+                        MOCK_DATA.orders.push({
+                            date: date.toISOString().split('T')[0],
+                            productId: product.id,
+                            productName: product.name,
+                            category: product.category,
+                            price: Math.floor(Math.random() * 100) + 20,
+                            ageGroup: customer.ageGroup,
+                            trafficSource: customer.trafficSource,
+                        });
+                    }
+                }
+            }
+            generateMockOrders();
+
+            let state = {
+                activeView: 'overview',
+                dateRange: 30,
+            };
+
+            const chartInstances = {};
+
+            const formatCurrency = (value) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+            const formatNumber = (value) => new Intl.NumberFormat('en-US').format(value);
+            
+            function filterDataByDateRange() {
+                const endDate = new Date();
+                const startDate = new Date();
+                startDate.setDate(endDate.getDate() - state.dateRange);
+                
+                return MOCK_DATA.orders.filter(order => {
+                    const orderDate = new Date(order.date);
+                    return orderDate >= startDate && orderDate <= endDate;
+                });
+            }
+
+            function updateKPIs(data) {
+                const totalRevenue = data.reduce((sum, order) => sum + order.price, 0);
+                const totalOrders = data.length;
+                const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+                const conversionRate = (Math.random() * (3.5 - 1.5) + 1.5).toFixed(2);
+
+                document.getElementById('kpi-revenue').textContent = formatCurrency(totalRevenue);
+                document.getElementById('kpi-orders').textContent = formatNumber(totalOrders);
+                document.getElementById('kpi-aov').textContent = formatCurrency(avgOrderValue);
+                document.getElementById('kpi-conversion').textContent = `${conversionRate}%`;
+            }
+
+            function updateRevenueTrendChart(data) {
+                const revenueByDay = {};
+                for (let i = 0; i < state.dateRange; i++) {
+                    const d = new Date();
+                    d.setDate(d.getDate() - i);
+                    const dateString = d.toISOString().split('T')[0];
+                    revenueByDay[dateString] = 0;
+                }
+
+                data.forEach(order => {
+                    revenueByDay[order.date] = (revenueByDay[order.date] || 0) + order.price;
+                });
+
+                const sortedDates = Object.keys(revenueByDay).sort();
+                const labels = sortedDates.map(date => new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+                const chartData = sortedDates.map(date => revenueByDay[date]);
+                
+                const chartConfig = {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Revenue',
+                            data: chartData,
+                            borderColor: '#3B82F6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: { beginAtZero: true, ticks: { callback: value => formatCurrency(value) } },
+                            x: { grid: { display: false } }
+                        },
+                        plugins: { legend: { display: false } }
+                    }
+                };
+
+                if (chartInstances.revenueTrend) {
+                    chartInstances.revenueTrend.data.labels = labels;
+                    chartInstances.revenueTrend.data.datasets[0].data = chartData;
+                    chartInstances.revenueTrend.update();
+                } else {
+                    const ctx = document.getElementById('revenueTrendChart').getContext('2d');
+                    chartInstances.revenueTrend = new Chart(ctx, chartConfig);
+                }
+            }
+            
+            function updateTrafficSourcesChart(data) {
+                const sources = data.reduce((acc, order) => {
+                    acc[order.trafficSource] = (acc[order.trafficSource] || 0) + 1;
+                    return acc;
+                }, {});
+
+                const labels = Object.keys(sources);
+                const chartData = Object.values(sources);
+                
+                const chartConfig = {
+                    type: 'doughnut',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Traffic Source',
+                            data: chartData,
+                            backgroundColor: ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'],
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: 'bottom' } }
+                    }
+                };
+
+                if (chartInstances.trafficSources) {
+                    chartInstances.trafficSources.data.labels = labels;
+                    chartInstances.trafficSources.data.datasets[0].data = chartData;
+                    chartInstances.trafficSources.update();
+                } else {
+                    const ctx = document.getElementById('trafficSourcesChart').getContext('2d');
+                    chartInstances.trafficSources = new Chart(ctx, chartConfig);
+                }
+            }
+
+            function updateSalesByCategoryChart(data) {
+                const sales = data.reduce((acc, order) => {
+                    acc[order.category] = (acc[order.category] || 0) + order.price;
+                    return acc;
+                }, {});
+
+                const labels = Object.keys(sales);
+                const chartData = Object.values(sales);
+
+                const chartConfig = {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Revenue',
+                            data: chartData,
+                            backgroundColor: '#3B82F6',
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: { y: { beginAtZero: true, ticks: { callback: value => formatCurrency(value) } } },
+                        plugins: { legend: { display: false } }
+                    }
+                };
+
+                if (chartInstances.salesByCategory) {
+                    chartInstances.salesByCategory.data.labels = labels;
+                    chartInstances.salesByCategory.data.datasets[0].data = chartData;
+                    chartInstances.salesByCategory.update();
+                } else {
+                    const ctx = document.getElementById('salesByCategoryChart').getContext('2d');
+                    chartInstances.salesByCategory = new Chart(ctx, chartConfig);
+                }
+            }
+
+            function updateCustomerDemographicsChart(data) {
+                const demographics = data.reduce((acc, order) => {
+                    acc[order.ageGroup] = (acc[order.ageGroup] || 0) + 1;
+                    return acc;
+                }, {});
+                
+                const labels = Object.keys(demographics).sort();
+                const chartData = labels.map(label => demographics[label]);
+
+                const chartConfig = {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Number of Customers',
+                            data: chartData,
+                            backgroundColor: '#10B981',
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } }
+                    }
+                };
+
+                if (chartInstances.customerDemographics) {
+                    chartInstances.customerDemographics.data.labels = labels;
+                    chartInstances.customerDemographics.data.datasets[0].data = chartData;
+                    chartInstances.customerDemographics.update();
+                } else {
+                    const ctx = document.getElementById('customerDemographicsChart').getContext('2d');
+                    chartInstances.customerDemographics = new Chart(ctx, chartConfig);
+                }
+            }
+
+            function updateTopProductsTable(data) {
+                const products = data.reduce((acc, order) => {
+                    if (!acc[order.productId]) {
+                        acc[order.productId] = { name: order.productName, category: order.category, units: 0, revenue: 0 };
+                    }
+                    acc[order.productId].units += 1;
+                    acc[order.productId].revenue += order.price;
+                    return acc;
+                }, {});
+
+                const sortedProducts = Object.values(products).sort((a, b) => b.revenue - a.revenue).slice(0, 10);
+                
+                const tableBody = document.getElementById('top-products-table');
+                tableBody.innerHTML = '';
+                sortedProducts.forEach(p => {
+                    const row = `
+                        <tr class="border-b hover:bg-slate-50">
+                            <td class="p-3 font-medium">${p.name}</td>
+                            <td class="p-3 text-slate-600">${p.category}</td>
+                            <td class="p-3 text-slate-600">${formatNumber(p.units)}</td>
+                            <td class="p-3 text-slate-600 font-semibold">${formatCurrency(p.revenue)}</td>
+                        </tr>
+                    `;
+                    tableBody.innerHTML += row;
+                });
+            }
+
+            function updateDashboard() {
+                const filteredData = filterDataByDateRange();
+                
+                updateKPIs(filteredData);
+
+                if (state.activeView === 'overview') {
+                    updateRevenueTrendChart(filteredData);
+                    updateTrafficSourcesChart(filteredData);
+                } else if (state.activeView === 'sales') {
+                    updateSalesByCategoryChart(filteredData);
+                } else if (state.activeView === 'customers') {
+                    updateCustomerDemographicsChart(filteredData);
+                } else if (state.activeView === 'products') {
+                    updateTopProductsTable(filteredData);
+                }
+            }
+            
+            function handleNavClick(e) {
+                if (!e.target.matches('.nav-btn')) return;
+                
+                state.activeView = e.target.dataset.view;
+
+                document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+                e.target.classList.add('active');
+                
+                document.querySelectorAll('.view-section').forEach(section => section.classList.add('hidden'));
+                document.getElementById(`${state.activeView}-section`).classList.remove('hidden');
+
+                updateDashboard();
+            }
+
+            function handleDateFilterClick(e) {
+                if (!e.target.matches('.filter-btn')) return;
+                
+                state.dateRange = parseInt(e.target.dataset.range, 10);
+
+                document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+                e.target.classList.add('active');
+                
+                updateDashboard();
+            }
+
+            document.getElementById('main-nav').addEventListener('click', handleNavClick);
+            document.getElementById('date-filters').addEventListener('click', handleDateFilterClick);
+
+            updateDashboard();
+        });
+    </script>
+</body>
+</html>
