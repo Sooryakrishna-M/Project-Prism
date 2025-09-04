@@ -1,2 +1,2 @@
 # Project-Prism
-Project on the sql lab
+Project on the SQL Application Development
